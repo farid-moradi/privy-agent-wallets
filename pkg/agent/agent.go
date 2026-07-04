@@ -1,4 +1,5 @@
-package main
+// Package agent runs a Claude tool-use loop over a policy-guarded wallet.
+package agent
 
 import (
 	"context"
@@ -7,7 +8,8 @@ import (
 	"log"
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
-	privy "github.com/privy-io/go-sdk"
+
+	"github.com/farid-moradi/privy-agent-wallets/pkg/wallet"
 )
 
 const systemPrompt = `You are an accounts-payable agent for a small engineering team.
@@ -17,11 +19,8 @@ Company policy: payments go to the team treasury only, and only small amounts.
 Before paying, sanity-check the amount against the balance. Report exactly what
 happened, including failures — never claim a payment succeeded without a tx hash.`
 
-func runAgent(ctx context.Context, client *privy.PrivyClient, task string) error {
-	s, err := loadState()
-	if err != nil {
-		return err
-	}
+// Run drives the agent loop until Claude stops asking for tools.
+func Run(ctx context.Context, w *wallet.Client, s wallet.State, task string) error {
 	llm := anthropic.NewClient() // reads ANTHROPIC_API_KEY
 
 	tools := []anthropic.ToolUnionParam{
@@ -75,7 +74,7 @@ func runAgent(ctx context.Context, client *privy.PrivyClient, task string) error
 			case anthropic.TextBlock:
 				fmt.Printf("\nagent> %s\n", b.Text)
 			case anthropic.ToolUseBlock:
-				out, toolErr := dispatch(ctx, client, s, b.Name, []byte(b.JSON.Input.Raw()))
+				out, toolErr := dispatch(ctx, w, s, b.Name, []byte(b.JSON.Input.Raw()))
 				if toolErr != nil {
 					// Surface the failure to the model instead of crashing — a
 					// policy DENY from Privy lands here, and the agent should
@@ -96,12 +95,12 @@ func runAgent(ctx context.Context, client *privy.PrivyClient, task string) error
 	}
 }
 
-func dispatch(ctx context.Context, client *privy.PrivyClient, s state, name string, input []byte) (string, error) {
+func dispatch(ctx context.Context, w *wallet.Client, s wallet.State, name string, input []byte) (string, error) {
 	switch name {
 	case "get_eth_price":
 		return getETHPrice(ctx)
 	case "get_balance":
-		return getBalance(ctx, s.EVMAddress)
+		return wallet.GetBalance(ctx, s.EVMAddress)
 	case "send_eth":
 		var in struct {
 			To        string `json:"to"`
@@ -110,7 +109,7 @@ func dispatch(ctx context.Context, client *privy.PrivyClient, s state, name stri
 		if err := json.Unmarshal(input, &in); err != nil {
 			return "", err
 		}
-		return sendETH(ctx, client, s.EVMWalletID, in.To, in.AmountETH)
+		return w.SendETH(ctx, s.EVMWalletID, wallet.BaseSepoliaCAIP2, in.To, in.AmountETH)
 	}
 	return "", fmt.Errorf("unknown tool %q", name)
 }
