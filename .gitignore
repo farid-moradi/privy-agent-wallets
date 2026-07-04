@@ -1,0 +1,9 @@
+# secrets — never commit
+.env
+
+# created by `setup`, specific to your Privy app
+wallets.json
+
+# build output
+agent-wallets
+privy-agent-wallets
