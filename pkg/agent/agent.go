@@ -9,19 +9,21 @@ import (
 
 	anthropic "github.com/anthropics/anthropic-sdk-go"
 
+	"github.com/farid-moradi/privy-agent-wallets/pkg/config"
 	"github.com/farid-moradi/privy-agent-wallets/pkg/wallet"
 )
 
-const systemPrompt = `You are an accounts-payable agent for a small engineering team.
-You manage a petty-cash wallet on Base Sepolia (a testnet).
+const systemPromptFmt = `You are an accounts-payable agent for a small engineering team.
+You manage a petty-cash wallet on %s.
 You can check the ETH price, check the wallet balance, and send payments.
 Company policy: payments go to the team treasury only, and only small amounts.
 Before paying, sanity-check the amount against the balance. Report exactly what
 happened, including failures — never claim a payment succeeded without a tx hash.`
 
 // Run drives the agent loop until Claude stops asking for tools.
-func Run(ctx context.Context, w *wallet.Client, s wallet.State, task string) error {
+func Run(ctx context.Context, w *wallet.Client, s wallet.State, net config.Network, task string) error {
 	llm := anthropic.NewClient() // reads ANTHROPIC_API_KEY
+	systemPrompt := fmt.Sprintf(systemPromptFmt, net.Name)
 
 	tools := []anthropic.ToolUnionParam{
 		{OfTool: &anthropic.ToolParam{
@@ -74,7 +76,7 @@ func Run(ctx context.Context, w *wallet.Client, s wallet.State, task string) err
 			case anthropic.TextBlock:
 				fmt.Printf("\nagent> %s\n", b.Text)
 			case anthropic.ToolUseBlock:
-				out, toolErr := dispatch(ctx, w, s, b.Name, []byte(b.JSON.Input.Raw()))
+				out, toolErr := dispatch(ctx, w, s, net, b.Name, []byte(b.JSON.Input.Raw()))
 				if toolErr != nil {
 					// Surface the failure to the model instead of crashing — a
 					// policy DENY from Privy lands here, and the agent should
@@ -95,12 +97,12 @@ func Run(ctx context.Context, w *wallet.Client, s wallet.State, task string) err
 	}
 }
 
-func dispatch(ctx context.Context, w *wallet.Client, s wallet.State, name string, input []byte) (string, error) {
+func dispatch(ctx context.Context, w *wallet.Client, s wallet.State, net config.Network, name string, input []byte) (string, error) {
 	switch name {
 	case "get_eth_price":
 		return getETHPrice(ctx)
 	case "get_balance":
-		return wallet.GetBalance(ctx, s.EVMAddress)
+		return wallet.GetBalance(ctx, net.RPCURL, s.EVMAddress)
 	case "send_eth":
 		var in struct {
 			To        string `json:"to"`
@@ -109,7 +111,7 @@ func dispatch(ctx context.Context, w *wallet.Client, s wallet.State, name string
 		if err := json.Unmarshal(input, &in); err != nil {
 			return "", err
 		}
-		return w.SendETH(ctx, s.EVMWalletID, wallet.BaseSepoliaCAIP2, in.To, in.AmountETH)
+		return w.SendETH(ctx, s.EVMWalletID, net.CAIP2, in.To, in.AmountETH)
 	}
 	return "", fmt.Errorf("unknown tool %q", name)
 }

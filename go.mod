@@ -1,6 +1,6 @@
 module github.com/farid-moradi/privy-agent-wallets
 
-go 1.26.4
+go 1.24
 
 require (
 	github.com/anthropics/anthropic-sdk-go v1.56.0

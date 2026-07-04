@@ -10,13 +10,6 @@ import (
 	privy "github.com/privy-io/go-sdk"
 )
 
-const (
-	// BaseSepoliaCAIP2 selects the chain per transaction; the same EVM wallet
-	// works on any EVM chain.
-	BaseSepoliaCAIP2 = "eip155:84532"
-	baseSepoliaRPC   = "https://sepolia.base.org"
-)
-
 // Config bounds what the wallet is allowed to do. The policy built from it is
 // enforced inside Privy's TEE, next to the key.
 type Config struct {

@@ -2,8 +2,9 @@
 .env
 
 # created by `setup`, specific to your Privy app
-wallets.json
+wallets*.json
 
-# build output (root-anchored so cmd/agent-wallets/ stays tracked)
+# build output (root-anchored so cmd/ entries stay tracked)
 /agent-wallets
 /privy-agent-wallets
+/user-wallet-demo

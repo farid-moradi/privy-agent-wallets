@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// GetBalance does a raw eth_getBalance against the public Base Sepolia RPC.
-func GetBalance(ctx context.Context, addr string) (string, error) {
+// GetBalance does a raw eth_getBalance against the given RPC endpoint.
+func GetBalance(ctx context.Context, rpcURL, addr string) (string, error) {
 	body := fmt.Sprintf(`{"jsonrpc":"2.0","id":1,"method":"eth_getBalance","params":["%s","latest"]}`, addr)
-	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, baseSepoliaRPC, strings.NewReader(body))
+	req, _ := http.NewRequestWithContext(ctx, http.MethodPost, rpcURL, strings.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
