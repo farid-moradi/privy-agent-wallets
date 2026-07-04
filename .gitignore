@@ -4,6 +4,6 @@
 # created by `setup`, specific to your Privy app
 wallets.json
 
-# build output
-agent-wallets
-privy-agent-wallets
+# build output (root-anchored so cmd/agent-wallets/ stays tracked)
+/agent-wallets
+/privy-agent-wallets
